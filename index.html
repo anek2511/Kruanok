@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #1A5D1A; /* Dark Green */
+            --secondary-color: #F1F8E8; /* Light Green/White */
+            --text-color: #333;
+            --sidebar-width: 260px;
+        }
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+        .sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-width);
+            background-color: var(--primary-color);
+            color: white;
+            z-index: 1040;
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-header {
+            padding: 1.2rem 1rem;
+            font-size: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            font-weight: 700;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            font-size: 1.05rem;
+        }
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: #144814;
+            border-left: 4px solid #A3B763;
+            font-weight: 500;
+        }
+        .sidebar .nav-link .bi {
+            margin-right: 12px;
+            font-size: 1.2em;
+            vertical-align: text-bottom;
+        }
+        .main-header {
+            position: fixed; top: 0; left: var(--sidebar-width); right: 0;
+            height: 60px;
+            background-color: #ffffff;
+            border-bottom: 1px solid #dee2e6;
+            z-index: 1030;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            transition: left 0.3s ease-in-out;
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding-top: 84px; /* 60px header + 24px padding */
+            padding-bottom: 84px;
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .main-footer {
+            background-color: #343a40; color: white; text-align: center;
+            padding: 1rem 0;
+            position: fixed; bottom: 0;
+            width: calc(100% - var(--sidebar-width));
+            margin-left: var(--sidebar-width);
+            z-index: 1031;
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .main-footer a { color: #A3B763; text-decoration: none; }
+        .main-footer a:hover { text-decoration: underline; }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .page-title { font-weight: 700; color: var(--primary-color); }
+        .card { border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .card-header .bi {
+             color: var(--primary-color);
+        }
+        .admin-only { display: none; }
+        .accordion-button:not(.collapsed) {
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+        }
+        
+        @media (max-width: 991.98px) {
+            .sidebar { transform: translateX(-100%); z-index: 1045; }
+            .sidebar.show { transform: translateX(0); }
+            .main-header { left: 0; }
+            .main-content { margin-left: 0; padding-top: 84px; }
+            .main-footer { width: 100%; margin-left: 0; }
+            .sidebar-overlay {
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 1041;
+                display: none;
+            }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">ระบบส่งงาน</div>
+        <ul class="nav flex-column">
+            <li class="nav-item"><a class="nav-link active" data-page="dashboard"><i class="bi bi-bar-chart-line-fill"></i> แดชบอร์ด</a></li>
+            <li class="nav-item"><a class="nav-link" data-page="submission"><i class="bi bi-send-plus-fill"></i> บันทึกส่งงาน</a></li>
+            <li class="nav-item"><a class="nav-link" data-page="unsubmitted-report"><i class="bi bi-list-check"></i> รายงานค้างส่ง</a></li>
+            <li class="nav-item"><a class="nav-link" data-page="my-scores"><i class="bi bi-award-fill"></i> คะแนนของฉัน</a></li>
+            <li class="nav-item"><a class="nav-link" data-page="grades"><i class="bi bi-file-earmark-text-fill"></i> ผลการเรียน</a></li>
+            <li class="nav-item admin-only mt-3 border-top pt-2 border-secondary"><a class="nav-link" data-page="assign-work"><i class="bi bi-plus-square-dotted"></i> มอบหมายงาน</a></li>
+            <li class="nav-item admin-only"><a class="nav-link" data-page="admin-report"><i class="bi bi-clipboard-data-fill"></i> ตรวจงาน/ให้คะแนน</a></li>
+            <li class="nav-item admin-only"><a class="nav-link" data-page="gradebook"><i class="bi bi-journal-check"></i> บันทึกคะแนน/ตัดเกรด</a></li>
+            <li class="nav-item admin-only"><a class="nav-link" data-page="manage-data"><i class="bi bi-gear-fill"></i> จัดการข้อมูล</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <header class="main-header">
+            <button class="btn d-lg-none me-3" id="menu-toggle"><i class="bi bi-list fs-4"></i></button>
+            <h4 id="page-title-header" class="mb-0 page-title">แดชบอร์ด</h4>
+            <div id="auth-controls" class="ms-auto"></div>
+        </header>
+
+        <div class="main-content container-fluid">
+            <section id="dashboard-page" class="content-section active">
+                <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-bar-chart-line-fill me-2"></i>สรุปภาพรวมการส่งงาน (%)</h5></div>
+                    <div class="card-body">
+                        <div class="accordion mb-4" id="dashboardFilterAccordion">
+                          <div class="accordion-item">
+                            <h2 class="accordion-header">
+                              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDashboardFilter">
+                                <i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูล
+                              </button>
+                            </h2>
+                            <div id="collapseDashboardFilter" class="accordion-collapse collapse">
+                              <div class="accordion-body">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-lg-4 col-md-6"><label class="form-label">ชั้นเรียน</label><select id="dashboard-class-filter" class="form-select"></select></div>
+                                    <div class="col-lg-4 col-md-6"><label class="form-label">รายวิชา</label><select id="dashboard-subject-filter" class="form-select"></select></div>
+                                    <div class="col-lg-4 col-md-6"><label class="form-label">นักเรียน</label><select id="dashboard-student-filter" class="form-select"></select></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div id="dashboard-chart"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="submission-page" class="content-section">
+                <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-send-plus-fill me-2"></i>บันทึกการส่งงาน</h5></div>
+                    <div class="card-body">
+                        <form id="submission-form" class="row g-3">
+                            <input type="hidden" id="sub-date">
+                            <div class="col-lg-6 col-md-6"><label class="form-label">ชั้นเรียน</label><select id="sub-class" class="form-select" required></select></div>
+                            <div class="col-lg-6 col-md-6"><label class="form-label">ชื่อนักเรียน</label><select id="sub-student" class="form-select" required></select></div>
+                            <div class="col-lg-6 col-md-6"><label class="form-label">รายวิชา</label><select id="sub-subject" class="form-select" required disabled></select></div>
+                            <div class="col-lg-6 col-md-6"><label class="form-label">ชื่องาน (เฉพาะงานที่ค้างส่ง)</label><select id="sub-assignment" class="form-select" required disabled></select></div>
+                            <div class="col-12"><label class="form-label">Link</label><input type="url" class="form-control" id="sub-link" placeholder="https://..."></div>
+                            <div class="col-12"><label class="form-label">แนบไฟล์</label><input type="file" class="form-control" id="sub-file"></div>
+                            <div class="col-12"><label class="form-label">หมายเหตุ</label><textarea class="form-control" id="sub-notes" rows="3"></textarea></div>
+                            <div class="col-12"><button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>บันทึก</button><button type="reset" class="btn btn-secondary ms-2"><i class="bi bi-arrow-counterclockwise me-2"></i>รีเซ็ต</button></div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="unsubmitted-report-page" class="content-section">
+                <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-list-check me-2"></i>รายงานนักเรียนที่ยังไม่ส่งงาน</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3 p-2 mb-4 border rounded bg-light align-items-center">
+                             <div class="col-lg-6 col-md-6"><label class="form-label">ชั้นเรียน</label><select id="unsubmitted-class-filter" class="form-select"></select></div>
+                             <div class="col-lg-6 col-md-6"><label class="form-label">รายวิชา</label><select id="unsubmitted-subject-filter" class="form-select"></select></div>
+                        </div>
+                        <div id="unsubmitted-report-results">
+                            <p class="text-center text-muted">กรุณาเลือกชั้นเรียนและรายวิชาเพื่อดูรายงาน</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="my-scores-page" class="content-section">
+                 <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-award-fill me-2"></i>คะแนนของฉัน</h5></div>
+                    <div class="card-body">
+                         <div class="accordion mb-4" id="myScoresFilterAccordion">
+                           <div class="accordion-item">
+                             <h2 class="accordion-header">
+                               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMyScoresFilter">
+                                 <i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูล
+                               </button>
+                             </h2>
+                             <div id="collapseMyScoresFilter" class="accordion-collapse collapse">
+                               <div class="accordion-body">
+                                 <div class="row g-3 align-items-center">
+                                     <div class="col-lg-4 col-md-12"><label class="form-label">ชั้นเรียน</label><select id="my-scores-class-filter" class="form-select"></select></div>
+                                     <div class="col-lg-5 col-md-12"><label class="form-label">ชื่อของคุณ</label><select id="my-scores-student-filter" class="form-select" disabled></select></div>
+                                     <div class="col-lg-3 col-md-12 d-grid"><button id="get-my-scores-btn" class="btn btn-primary" disabled><i class="bi bi-search me-1"></i>ตรวจสอบ</button></div>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                         <div id="my-scores-results">
+                             <p class="text-center text-muted">กรุณาเลือกข้อมูลในตัวกรองเพื่อดูคะแนน</p>
+                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="grades-page" class="content-section">
+                 <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>ผลการเรียน</h5></div>
+                    <div class="card-body">
+                         <div class="accordion mb-4" id="gradesFilterAccordion">
+                           <div class="accordion-item">
+                             <h2 class="accordion-header">
+                               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGradesFilter">
+                                 <i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูล
+                               </button>
+                             </h2>
+                             <div id="collapseGradesFilter" class="accordion-collapse collapse">
+                               <div class="accordion-body">
+                                 <div class="row g-3 align-items-center">
+                                     <div class="col-lg-4 col-md-12"><label class="form-label">ชั้นเรียน</label><select id="grades-class-filter" class="form-select"></select></div>
+                                     <div class="col-lg-5 col-md-12"><label class="form-label">ชื่อของคุณ</label><select id="grades-student-filter" class="form-select" disabled></select></div>
+                                     <div class="col-lg-3 col-md-12 d-grid"><button id="get-grades-btn" class="btn btn-primary" disabled><i class="bi bi-search me-1"></i>ตรวจสอบ</button></div>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                         <div id="grades-results" class="table-responsive">
+                             <p class="text-center text-muted">กรุณาเลือกข้อมูลในตัวกรองเพื่อดูผลการเรียน</p>
+                         </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="assign-work-page" class="content-section admin-only">
+                <div class="card">
+                    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-plus-square-dotted me-2"></i>มอบหมายงาน</h5></div>
+                    <div class="card-body">
+                        <form id="assign-work-form" class="row g-3 align-items-end">
+                            <div class="col-lg-12"><label class="form-label">ชื่องาน</label><input type="text" id="assign-name" class="form-control" required></div>
+                            <div class="col-lg-5 col-md-6"><label class="form-label">รายวิชา</label><select id="assign-subject" class="form-select" required></select></div>
+                            <div class="col-lg-5 col-md-6"><label class="form-label">ชั้นเรียน</label><select id="assign-class" class="form-select" required></select></div>
+                            <div class="col-lg-2 col-md-12 d-grid"><button type="submit" class="btn btn-primary"><i class="bi bi-send-check me-2"></i>มอบหมาย</button></div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section id="admin-report-page" class="content-section admin-only">
+                <div class="card">
+                     <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-clipboard-data-fill me-2"></i>ตรวจงานและให้คะแนน</h5></div>
+                     <div class="card-body">
+                        <div class="accordion mb-4" id="adminReportFilterAccordion">
+                          <div class="accordion-item">
+                            <h2 class="accordion-header">
+                              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdminReportFilter">
+                                <i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูล
+                              </button>
+                            </h2>
+                            <div id="collapseAdminReportFilter" class="accordion-collapse collapse">
+                              <div class="accordion-body">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-lg-4 col-md-6"><label class="form-label">ชั้นเรียน</label><select id="admin-report-class-filter" class="form-select"></select></div>
+                                    <div class="col-lg-4 col-md-6"><label class="form-label">รายวิชา</label><select id="admin-report-subject-filter" class="form-select"></select></div>
+                                    <div class="col-lg-4 col-md-12"><label class="form-label">นักเรียน</label><select id="admin-report-student-filter" class="form-select"></select></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div id="admin-report-results" class="table-responsive">
+                            <p class="text-center text-muted">กรุณาเลือกข้อมูลในตัวกรองเพื่อดูรายงาน</p>
+                        </div>
+                     </div>
+                </div>
+            </section>
+
+            <section id="gradebook-page" class="content-section admin-only">
+                <div class="card">
+                     <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap">
+                        <h5 class="mb-0 me-3"><i class="bi bi-journal-check me-2"></i>บันทึกคะแนนและตัดเกรด</h5>
+                        <button id="save-gradebook-btn" class="btn btn-success d-none"><i class="bi bi-save me-2"></i>บันทึกข้อมูลทั้งหมด</button>
+                     </div>
+                     <div class="card-body">
+                         <div class="accordion mb-4" id="gradebookFilterAccordion">
+                           <div class="accordion-item">
+                             <h2 class="accordion-header">
+                               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGradebookFilter">
+                                 <i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูล
+                               </button>
+                             </h2>
+                             <div id="collapseGradebookFilter" class="accordion-collapse collapse">
+                               <div class="accordion-body">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-lg-4 col-md-12"><label class="form-label">ชั้นเรียน</label><select id="gradebook-class-filter" class="form-select"></select></div>
+                                    <div class="col-lg-5 col-md-12"><label class="form-label">รายวิชา</label><select id="gradebook-subject-filter" class="form-select"></select></div>
+                                    <div class="col-lg-3 col-md-12 d-grid"><button id="load-gradebook-btn" class="btn btn-primary"><i class="bi bi-arrow-down-circle me-1"></i>แสดงข้อมูล</button></div>
+                                </div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                        <div id="gradebook-results" class="table-responsive">
+                            <p class="text-center text-muted">กรุณาเลือกข้อมูลในตัวกรองเพื่อแสดงตารางคะแนน</p>
+                        </div>
+                     </div>
+                </div>
+            </section>
+            
+            <section id="manage-data-page" class="content-section admin-only">
+                <div class="accordion" id="manageDataAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne"><i class="bi bi-collection-fill me-2"></i>เพิ่ม/จัดการชั้นเรียน</button></h2>
+                        <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#manageDataAccordion">
+                            <div class="accordion-body"><form id="add-class-form" class="row g-3"><div class="col-md-9"><input type="text" class="form-control" id="new-class-name" placeholder="ชื่อชั้นเรียน" required></div><div class="col-md-3 d-grid"><button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>เพิ่ม</button></div></form></div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo"><i class="bi bi-book-half me-2"></i>เพิ่ม/จัดการรายวิชา</button></h2>
+                        <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#manageDataAccordion">
+                            <div class="accordion-body"><form id="add-subject-form" class="row g-3"><div class="col-md-9"><input type="text" class="form-control" id="new-subject-name" placeholder="ชื่อรายวิชา" required></div><div class="col-md-3 d-grid"><button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>เพิ่ม</button></div></form></div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree"><i class="bi bi-person-plus-fill me-2"></i>เพิ่มนักเรียน</button></h2>
+                        <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#manageDataAccordion">
+                            <div class="accordion-body"><form id="add-student-form" class="row g-3"><div class="col-md-3"><input type="text" class="form-control" id="new-student-id" placeholder="รหัสนักเรียน" required></div><div class="col-md-5"><input type="text" class="form-control" id="new-student-name" placeholder="ชื่อ-สกุล" required></div><div class="col-md-4"><select id="new-student-class" class="form-select" required></select></div><div class="col-12 d-grid"><button type="submit" class="btn btn-primary">เพิ่มนักเรียน</button></div></form></div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>นำเข้าข้อมูลนักเรียน (.csv)</button></h2>
+                        <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#manageDataAccordion">
+                            <div class="accordion-body"><p>ไฟล์ CSV ต้องมี 3 คอลัมน์: <strong>รหัสนักเรียน, ชื่อ-สกุล, ชั้นเรียน</strong> (ไม่ต้องมีหัวตาราง)</p><form id="import-students-form" class="row g-3"><div class="col-md-9"><input type="file" id="student-import-file" class="form-control" accept=".csv" required></div><div class="col-md-3 d-grid"><button type="submit" class="btn btn-success"><i class="bi bi-upload me-1"></i>นำเข้า</button></div></form></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <footer class="main-footer">
+            © 2025 ระบบการส่งงาน | ผู้พัฒนา <a href="https://www.kruken.shop" target="_blank">ครูเอนก จารุเกียรติกุล</a>
+        </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let isAdminLoggedIn = false;
+        let dashboardChart;
+        let gradebookDataCache = [];
+        let studentAssignmentsCache = {};
+
+        // --- UTILITIES ---
+        const showLoading = (title = 'กำลังประมวลผล...') => Swal.fire({ title, didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+        const hideLoading = () => Swal.close();
+        const showSuccess = (message) => Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: message, timer: 2000, showConfirmButton: false });
+        const showError = (message) => Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message });
+
+        const populateDropdown = (selectId, data, options = {}) => {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '';
+            if (options.addDefault) select.add(new Option(options.defaultText || '-- ทั้งหมด --', 'all'));
+            if (options.addBlank) select.add(new Option(options.blankText || '-- กรุณาเลือก --', ''));
+            data.forEach(item => {
+                if (typeof item === 'object') select.add(new Option(item.text, item.value));
+                else select.add(new Option(item, item));
+            });
+        };
+
+        // --- NAVIGATION & UI ---
+        function navigateTo(page) {
+            document.querySelectorAll(".content-section").forEach(s => s.classList.remove("active"));
+            document.getElementById(`${page}-page`).classList.add("active");
+            document.querySelectorAll(".sidebar .nav-link").forEach(l => l.classList.remove("active"));
+            const activeLink = document.querySelector(`.sidebar .nav-link[data-page='${page}']`);
+            activeLink.classList.add("active");
+            document.getElementById('page-title-header').textContent = activeLink.textContent.trim();
+            
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (sidebar.classList.contains('show')) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
+        }
+
+        function updateAuthUI() {
+            showLoading('กำลังตรวจสอบสิทธิ์...');
+            google.script.run.withSuccessHandler(isLoggedIn => {
+                isAdminLoggedIn = isLoggedIn;
+                document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = isLoggedIn ? 'block' : 'none');
+                const authControls = document.getElementById('auth-controls');
+                if (isLoggedIn) {
+                    authControls.innerHTML = `<button id="logout-btn" class="btn btn-outline-danger btn-sm">ออกจากระบบ</button>`;
+                    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+                } else {
+                    authControls.innerHTML = `<button id="login-btn" class="btn btn-outline-primary btn-sm">เข้าสู่ระบบ (ครู)</button>`;
+                    document.getElementById('login-btn').addEventListener('click', showLoginPrompt);
+                }
+                hideLoading();
+            }).withFailureHandler(err => showError(err.message)).checkAuthStatus();
+        }
+        
+        // --- AUTHENTICATION ---
+        function showLoginPrompt() {
+            Swal.fire({
+                title: 'เข้าสู่ระบบ (สำหรับครู)',
+                html: `<input type="text" id="username" class="swal2-input" placeholder="ชื่อผู้ใช้">
+                       <input type="password" id="password" class="swal2-input" placeholder="รหัสผ่าน">`,
+                confirmButtonText: 'เข้าสู่ระบบ',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const username = Swal.getPopup().querySelector('#username').value;
+                    const password = Swal.getPopup().querySelector('#password').value;
+                    if (!username || !password) Swal.showValidationMessage(`กรุณากรอกชื่อผู้ใช้และรหัสผ่าน`);
+                    return { username, password };
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    showLoading();
+                    google.script.run.withSuccessHandler(response => {
+                        if (response.success) {
+                            Swal.close();
+                            updateAuthUI();
+                            navigateTo('assign-work');
+                        } else {
+                            showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+                        }
+                    }).withFailureHandler(err => showError(err.message)).checkLogin(result.value);
+                }
+            });
+        }
+        
+        function handleLogout() {
+            showLoading();
+            google.script.run.withSuccessHandler(() => {
+                updateAuthUI();
+                navigateTo('dashboard');
+            }).withFailureHandler(err => showError(err.message)).logout();
+        }
+
+        // --- DASHBOARD ---
+        function initDashboard() {
+            const options = {
+                chart: { type: 'bar', height: 400, toolbar: { show: true } },
+                series: [{ name: 'การส่งงาน', data: [] }],
+                xaxis: { categories: [] },
+                yaxis: { min: 0, max: 100, title: { text: '%' } },
+                plotOptions: { bar: { horizontal: false, columnWidth: '55%', endingShape: 'rounded' } },
+                dataLabels: { enabled: false },
+            };
+            dashboardChart = new ApexCharts(document.querySelector("#dashboard-chart"), options);
+            dashboardChart.render();
+            document.querySelectorAll('#dashboard-class-filter, #dashboard-subject-filter, #dashboard-student-filter').forEach(el => {
+                el.addEventListener('change', loadDashboardData);
+            });
+        }
+        
+        function loadDashboardData() {
+            showLoading('กำลังโหลดข้อมูล...');
+            const filters = {
+                className: document.getElementById('dashboard-class-filter').value,
+                subject: document.getElementById('dashboard-subject-filter').value,
+                studentId: document.getElementById('dashboard-student-filter').value,
+            };
+            google.script.run.withSuccessHandler(data => {
+                if (data.error) { showError(data.error); return; }
+                dashboardChart.updateOptions({
+                    xaxis: { categories: data.labels },
+                    series: [{ data: data.series }]
+                });
+                hideLoading();
+            }).withFailureHandler(err => showError(err.message)).getDashboardReport(filters);
+        }
+
+        // --- INITIALIZE ALL DROPDOWNS ---
+        function initializeDropdowns() {
+             google.script.run.withSuccessHandler(data => {
+                const classOptions = { addBlank: true };
+                ['sub-class', 'my-scores-class-filter', 'grades-class-filter', 'new-student-class', 'assign-class', 'admin-report-class-filter', 'gradebook-class-filter', 'unsubmitted-class-filter']
+                    .forEach(id => populateDropdown(id, data.classes, classOptions));
+                populateDropdown('dashboard-class-filter', data.classes, { addDefault: true });
+
+                const subjectOptions = { addBlank: true };
+                 ['assign-subject', 'admin-report-subject-filter', 'gradebook-subject-filter', 'unsubmitted-subject-filter']
+                    .forEach(id => populateDropdown(id, data.subjects, subjectOptions));
+                populateDropdown('dashboard-subject-filter', data.subjects, { addDefault: true });
+
+            }).withFailureHandler(err => showError(err.message)).getInitialData();
+        }
+
+        // --- FORM LOGIC ---
+        function setupFormListeners() {
+            // Submission Form Dependencies - NEW LOGIC
+            document.getElementById('sub-class').addEventListener('change', e => {
+                const className = e.target.value;
+                 // Reset dependent dropdowns
+                document.getElementById('sub-student').innerHTML = '';
+                document.getElementById('sub-subject').innerHTML = '';
+                document.getElementById('sub-assignment').innerHTML = '';
+                document.getElementById('sub-subject').disabled = true;
+                document.getElementById('sub-assignment').disabled = true;
+
+                if (!className) return;
+                google.script.run.withSuccessHandler(students => {
+                     populateDropdown('sub-student', students.map(s => ({ text: `${s.studentId} - ${s.studentName}`, value: s.studentId })), { addBlank: true, blankText: '-- เลือกชื่อนักเรียน --' });
+                }).getStudentsByClass(className);
+            });
+
+            document.getElementById('sub-student').addEventListener('change', e => {
+                const studentId = e.target.value;
+                const subjectSelect = document.getElementById('sub-subject');
+                const assignmentSelect = document.getElementById('sub-assignment');
+                
+                subjectSelect.innerHTML = '<option value="">-- กรุณาเลือก --</option>';
+                assignmentSelect.innerHTML = '<option value="">-- กรุณาเลือกวิชาก่อน --</option>';
+                subjectSelect.disabled = true;
+                assignmentSelect.disabled = true;
+                studentAssignmentsCache = {};
+
+                if (!studentId) return;
+
+                showLoading('กำลังค้นหางาน...');
+                google.script.run
+                    .withSuccessHandler(data => {
+                        hideLoading();
+                        if (data.error) { showError(data.error); return; }
+
+                        studentAssignmentsCache = data;
+                        const subjects = Object.keys(data);
+
+                        if (subjects.length === 0) {
+                            subjectSelect.innerHTML = '<option value="">-- ไม่มีงานที่ค้างส่ง --</option>';
+                            return;
+                        }
+
+                        populateDropdown('sub-subject', subjects, { addBlank: true });
+                        subjectSelect.disabled = false;
+                    })
+                    .withFailureHandler(err => showError(err.message))
+                    .getAssignmentsForStudent(studentId);
+            });
+
+            document.getElementById('sub-subject').addEventListener('change', e => {
+                const subject = e.target.value;
+                const assignmentSelect = document.getElementById('sub-assignment');
+                assignmentSelect.disabled = true;
+                
+                if (!subject || !studentAssignmentsCache[subject]) {
+                    assignmentSelect.innerHTML = '<option value="">-- กรุณาเลือกวิชาก่อน --</option>';
+                    return;
+                }
+
+                const assignments = studentAssignmentsCache[subject].map(a => ({
+                    text: a.assignmentName,
+                    value: a.assignmentId
+                }));
+
+                populateDropdown('sub-assignment', assignments, { addBlank: true });
+                assignmentSelect.disabled = false;
+            });
+
+
+            // Submission Form Submit
+            document.getElementById('submission-form').addEventListener('submit', e => {
+                e.preventDefault();
+                showLoading('กำลังบันทึก...');
+                const file = document.getElementById('sub-file').files[0];
+                const data = {
+                    submissionDate: document.getElementById('sub-date').value,
+                    className: document.getElementById('sub-class').value,
+                    subject: document.getElementById('sub-subject').value,
+                    assignmentId: document.getElementById('sub-assignment').value,
+                    studentId: document.getElementById('sub-student').value,
+                    link: document.getElementById('sub-link').value,
+                    notes: document.getElementById('sub-notes').value,
+                };
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        data.fileData = event.target.result;
+                        data.fileName = file.name;
+                        data.fileType = file.type;
+                        google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target)).withFailureHandler(err => showError(err.message)).saveSubmission(data);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target)).withFailureHandler(err => showError(err.message)).saveSubmission(data);
+                }
+            });
+
+            // Data Management Forms
+            document.getElementById('add-class-form').addEventListener('submit', e => {
+                e.preventDefault();
+                showLoading();
+                const value = document.getElementById('new-class-name').value;
+                google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target, initializeDropdowns)).addData("ชั้นเรียน", value);
+            });
+             document.getElementById('add-subject-form').addEventListener('submit', e => {
+                e.preventDefault();
+                showLoading();
+                const value = document.getElementById('new-subject-name').value;
+                google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target, initializeDropdowns)).addData("รายวิชา", value);
+            });
+            document.getElementById('add-student-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const data = {
+                    studentId: document.getElementById('new-student-id').value,
+                    studentName: document.getElementById('new-student-name').value,
+                    className: document.getElementById('new-student-class').value
+                };
+                showLoading();
+                google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target)).addStudent(data);
+            });
+            document.getElementById('import-students-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const file = document.getElementById('student-import-file').files[0];
+                if (!file) return;
+                showLoading();
+                Papa.parse(file, {
+                    complete: results => {
+                        google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target)).importStudents(results.data);
+                    },
+                    error: err => showError('Error parsing file: ' + err)
+                });
+            });
+
+             document.getElementById('assign-work-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const data = {
+                    assignmentName: document.getElementById('assign-name').value,
+                    subject: document.getElementById('assign-subject').value,
+                    className: document.getElementById('assign-class').value
+                };
+                showLoading();
+                google.script.run.withSuccessHandler(res => handleServerResponse(res, e.target)).createAssignment(data);
+             });
+        }
+        
+        function handleServerResponse(response, form = null, callback = null) {
+            if (response.success) {
+                showSuccess(response.message);
+                if (form) {
+                    form.reset();
+                    // Special reset for submission form to re-enable student selection
+                    if(form.id === 'submission-form') {
+                         document.getElementById('sub-subject').disabled = true;
+                         document.getElementById('sub-assignment').disabled = true;
+                    }
+                }
+                if (callback) callback();
+            } else {
+                showError(response.message);
+            }
+        }
+        
+        // --- REPORTS ---
+        function setupReportListeners() {
+            // Unsubmitted Report
+            document.querySelectorAll('#unsubmitted-class-filter, #unsubmitted-subject-filter').forEach(el => {
+                el.addEventListener('change', () => {
+                    const filters = {
+                        className: document.getElementById('unsubmitted-class-filter').value,
+                        subject: document.getElementById('unsubmitted-subject-filter').value
+                    };
+                    if (!filters.className || !filters.subject) return;
+                    showLoading('กำลังโหลดรายงาน...');
+                    google.script.run.withSuccessHandler(renderUnsubmittedReport).withFailureHandler(err => showError(err.message)).getUnsubmittedReport(filters);
+                });
+            });
+
+            // My Scores Report
+            document.getElementById('my-scores-class-filter').addEventListener('change', e => {
+                const className = e.target.value;
+                const studentSelect = document.getElementById('my-scores-student-filter');
+                const btn = document.getElementById('get-my-scores-btn');
+                if (!className) { studentSelect.disabled = true; btn.disabled = true; return; }
+                google.script.run.withSuccessHandler(students => {
+                     populateDropdown('my-scores-student-filter', students.map(s => ({ text: `${s.studentId} - ${s.studentName}`, value: s.studentId })), { addBlank: true });
+                     studentSelect.disabled = false;
+                     btn.disabled = !studentSelect.value;
+                }).getStudentsByClass(className);
+            });
+             document.getElementById('my-scores-student-filter').addEventListener('change', e => {
+                 document.getElementById('get-my-scores-btn').disabled = !e.target.value;
+             });
+             document.getElementById('get-my-scores-btn').addEventListener('click', () => {
+                const studentId = document.getElementById('my-scores-student-filter').value;
+                if (!studentId) return;
+                showLoading();
+                google.script.run.withSuccessHandler(renderMyScores).withFailureHandler(err => showError(err.message)).getStudentScores(studentId);
+             });
+
+            // Student Grades Report
+            document.getElementById('grades-class-filter').addEventListener('change', e => {
+                const className = e.target.value;
+                const studentSelect = document.getElementById('grades-student-filter');
+                const btn = document.getElementById('get-grades-btn');
+                if (!className) { studentSelect.disabled = true; btn.disabled = true; return; }
+                google.script.run.withSuccessHandler(students => {
+                     populateDropdown('grades-student-filter', students.map(s => ({ text: `${s.studentId} - ${s.studentName}`, value: s.studentId })), { addBlank: true });
+                     studentSelect.disabled = false;
+                     btn.disabled = !studentSelect.value;
+                }).getStudentsByClass(className);
+            });
+             document.getElementById('grades-student-filter').addEventListener('change', e => {
+                 document.getElementById('get-grades-btn').disabled = !e.target.value;
+             });
+             document.getElementById('get-grades-btn').addEventListener('click', () => {
+                const studentId = document.getElementById('grades-student-filter').value;
+                if (!studentId) return;
+                showLoading();
+                google.script.run.withSuccessHandler(renderStudentGrades).withFailureHandler(err => showError(err.message)).getStudentGrades(studentId);
+             });
+             
+             // Admin Report
+             document.querySelectorAll('#admin-report-class-filter, #admin-report-subject-filter, #admin-report-student-filter').forEach(el => {
+                el.addEventListener('change', loadAdminReport);
+             });
+             document.getElementById('admin-report-class-filter').addEventListener('change', e => {
+                 const className = e.target.value;
+                 google.script.run.withSuccessHandler(students => {
+                      populateDropdown('admin-report-student-filter', students.map(s => ({ text: `${s.studentId} - ${s.studentName}`, value: s.studentId })), { addDefault: true });
+                 }).getStudentsByClass(className);
+             });
+        }
+        
+        function renderUnsubmittedReport(data) {
+            const container = document.getElementById('unsubmitted-report-results');
+            if (data.error) { container.innerHTML = `<p class="text-danger">${data.error}</p>`; hideLoading(); return; }
+            if (data.length === 0) { container.innerHTML = `<p class="text-center text-muted">ไม่พบงานค้างส่ง</p>`; hideLoading(); return; }
+            let html = '<div class="accordion">';
+            data.forEach((item, index) => {
+                html += `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-unsub-${index}">
+                                ${item.assignmentName} <span class="badge bg-danger ms-auto">${item.unsubmitted.length} คน</span>
+                            </button>
+                        </h2>
+                        <div id="collapse-unsub-${index}" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <ul class="list-group">${item.unsubmitted.map(name => `<li class="list-group-item">${name}</li>`).join('')}</ul>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            hideLoading();
+        }
+
+        function renderMyScores(data) {
+            const container = document.getElementById('my-scores-results');
+            if (data.error || data.no_data) {
+                 container.innerHTML = `<p class="text-center text-muted">ไม่พบข้อมูลคะแนน</p>`; hideLoading(); return;
+            }
+            let html = '<div class="accordion">';
+            Object.keys(data).forEach((subject, index) => {
+                const subjectData = data[subject];
+                html += `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-score-${index}">
+                                <strong>${subject}</strong><span class="badge bg-success ms-auto">คะแนนรวม: ${subjectData.totalScore}</span>
+                            </button>
+                        </h2>
+                        <div id="collapse-score-${index}" class="accordion-collapse collapse show">
+                            <div class="accordion-body table-responsive">
+                                <table class="table table-sm table-hover"><thead><tr><th>ชื่องาน</th><th>วันที่ส่ง</th><th>คะแนน</th><th>Comment</th><th>ไฟล์/Link</th></tr></thead><tbody>`;
+                subjectData.submissions.forEach(sub => {
+                    html += `<tr>
+                        <td>${sub.assignmentName}</td>
+                        <td>${sub.date}</td>
+                        <td><strong class="text-primary">${sub.score}</strong></td>
+                        <td>${sub.comment}</td>
+                        <td>
+                            ${sub.link ? `<a href="${sub.link}" target="_blank" class="btn btn-sm btn-outline-info">Link</a>` : ''}
+                            ${sub.fileUrl ? `<a href="${sub.fileUrl}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1">ไฟล์</a>` : ''}
+                        </td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div></div></div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            hideLoading();
+        }
+
+        function renderStudentGrades(data) {
+            const container = document.getElementById('grades-results');
+            if (data.error || data.no_data) {
+                 container.innerHTML = `<p class="text-center text-muted">ไม่พบข้อมูลผลการเรียน</p>`; 
+                 hideLoading(); 
+                 return;
+            }
+            
+            let table = `<table class="table table-bordered table-hover"><thead><tr><th>รายวิชา</th><th>คะแนนรวม</th><th>เกรด</th></tr></thead><tbody>`;
+            data.forEach(item => {
+                table += `<tr>
+                    <td>${item.subject}</td>
+                    <td>${item.total}</td>
+                    <td><strong class="text-success fs-5">${item.grade}</strong></td>
+                </tr>`;
+            });
+            table += `</tbody></table>`;
+            container.innerHTML = table;
+            hideLoading();
+        }
+
+        function loadAdminReport() {
+            const filters = {
+                className: document.getElementById('admin-report-class-filter').value,
+                subject: document.getElementById('admin-report-subject-filter').value,
+                studentId: document.getElementById('admin-report-student-filter').value
+            };
+            if (!filters.className || !filters.subject) return;
+            showLoading();
+            google.script.run.withSuccessHandler(renderAdminReport).withFailureHandler(err => showError(err.message)).getAdminReportData(filters);
+        }
+
+        function renderAdminReport(data) {
+            const container = document.getElementById('admin-report-results');
+            if (data.error || data.length === 0) {
+                 container.innerHTML = `<p class="text-center text-muted">ไม่พบข้อมูลการส่งงาน</p>`; hideLoading(); return;
+            }
+            let table = `<table class="table table-bordered table-hover"><thead><tr><th>นักเรียน</th><th>ชื่องาน</th><th>วันที่ส่ง</th><th>คะแนน</th><th>Comment</th><th>ไฟล์/Link</th><th>จัดการ</th></tr></thead><tbody>`;
+            data.forEach(sub => {
+                table += `<tr>
+                    <td>${sub.studentName}</td>
+                    <td>${sub.assignmentName}</td>
+                    <td>${sub.date}</td>
+                    <td>${sub.score}</td>
+                    <td>${sub.comment}</td>
+                    <td>
+                        ${sub.link ? `<a href="${sub.link}" target="_blank" class="btn btn-sm btn-outline-info">Link</a>` : ''}
+                        ${sub.fileUrl ? `<a href="${sub.fileUrl}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1">ไฟล์</a>` : ''}
+                    </td>
+                    <td><button class="btn btn-warning btn-sm" onclick="editScore('${sub.submissionId}', '${sub.score}', '${sub.comment}')"><i class="bi bi-pencil-square"></i></button></td>
+                </tr>`;
+            });
+            table += `</tbody></table>`;
+            container.innerHTML = table;
+            hideLoading();
+        }
+        
+        function editScore(submissionId, currentScore, currentComment) {
+             Swal.fire({
+                title: 'แก้ไขคะแนน',
+                html: `
+                    <label for="swal-score" class="form-label">คะแนน (0-20)</label>
+                    <input type="number" id="swal-score" class="swal2-input" value="${currentScore === 'รอตรวจ' ? '' : currentScore}" min="0" max="20">
+                    <label for="swal-comment" class="form-label">Comment</label>
+                    <textarea id="swal-comment" class="swal2-textarea">${currentComment}</textarea>`,
+                confirmButtonText: 'บันทึก',
+                showCancelButton: true,
+                preConfirm: () => {
+                    return {
+                        submissionId: submissionId,
+                        score: document.getElementById('swal-score').value,
+                        comment: document.getElementById('swal-comment').value
+                    }
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    showLoading();
+                    google.script.run.withSuccessHandler(res => {
+                        if (res.success) { showSuccess(res.message); loadAdminReport(); }
+                        else { showError(res.message); }
+                    }).updateScore(result.value);
+                }
+            });
+        }
+        
+        // --- GRADEBOOK ---
+        function setupGradebookListeners() {
+            document.getElementById('load-gradebook-btn').addEventListener('click', () => {
+                const className = document.getElementById('gradebook-class-filter').value;
+                const subject = document.getElementById('gradebook-subject-filter').value;
+                if (!className || !subject) { showError('กรุณาเลือกชั้นเรียนและรายวิชา'); return; }
+                showLoading();
+                google.script.run.withSuccessHandler(renderGradebook).withFailureHandler(err => showError(err.message)).getGradebookData(className, subject);
+            });
+            document.getElementById('save-gradebook-btn').addEventListener('click', saveGradebook);
+        }
+
+        function renderGradebook(data) {
+            const container = document.getElementById('gradebook-results');
+            if (data.error || data.length === 0) {
+                 container.innerHTML = `<p class="text-center text-muted">ไม่พบข้อมูลนักเรียน</p>`; hideLoading();
+                 document.getElementById('save-gradebook-btn').classList.add('d-none');
+                 return;
+            }
+            gradebookDataCache = data;
+            let table = `<table class="table table-sm table-bordered"><thead><tr><th>ชื่อ-สกุล</th><th>คะแนนเก็บ</th><th>คะแนนงาน</th><th>กลางภาค</th><th>ปลายภาค</th><th>จิตพิสัย</th><th>รวม</th><th>เกรด</th></tr></thead><tbody>`;
+            data.forEach((student, index) => {
+                table += `<tr>
+                    <td>${student.studentName} (${student.studentId})</td>
+                    <td><input type="number" class="form-control form-control-sm grade-input" data-index="${index}" data-field="collected" value="${student.collected}"></td>
+                    <td><input type="number" class="form-control form-control-sm grade-input" data-index="${index}" data-field="work" value="${student.work}"></td>
+                    <td><input type="number" class="form-control form-control-sm grade-input" data-index="${index}" data-field="midterm" value="${student.midterm}"></td>
+                    <td><input type="number" class="form-control form-control-sm grade-input" data-index="${index}" data-field="final" value="${student.final}"></td>
+                    <td><input type="number" class="form-control form-control-sm grade-input" data-index="${index}" data-field="attitude" value="${student.attitude}"></td>
+                    <td id="total-${index}" class="fw-bold">${student.total}</td>
+                    <td id="grade-${index}" class="fw-bold text-primary">${student.grade}</td>
+                </tr>`;
+            });
+            table += `</tbody></table>`;
+            container.innerHTML = table;
+            document.querySelectorAll('.grade-input').forEach(input => input.addEventListener('input', updateGradeRow));
+            document.getElementById('save-gradebook-btn').classList.remove('d-none');
+            hideLoading();
+        }
+        
+        function updateGradeRow(e) {
+            const index = e.target.dataset.index;
+            const field = e.target.dataset.field;
+            gradebookDataCache[index][field] = parseFloat(e.target.value) || 0;
+            const student = gradebookDataCache[index];
+            const total = (student.collected || 0) + (student.work || 0) + (student.midterm || 0) + (student.final || 0) + (student.attitude || 0);
+            student.total = total;
+            
+            let grade = "-";
+            if (total >= 80) grade = 4; else if (total >= 75) grade = 3.5; else if (total >= 70) grade = 3;
+            else if (total >= 65) grade = 2.5; else if (total >= 60) grade = 2; else if (total >= 55) grade = 1.5;
+            else if (total >= 50) grade = 1; else grade = 0;
+            student.grade = grade;
+            
+            document.getElementById(`total-${index}`).textContent = total;
+            document.getElementById(`grade-${index}`).textContent = grade;
+        }
+
+        function saveGradebook() {
+            const className = document.getElementById('gradebook-class-filter').value;
+            const subject = document.getElementById('gradebook-subject-filter').value;
+            showLoading('กำลังบันทึกคะแนน...');
+            google.script.run.withSuccessHandler(res => handleServerResponse(res)).saveGradebookData(className, subject, gradebookDataCache);
+        }
+
+        // --- APP INITIALIZATION ---
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('sub-date').value = new Date().toISOString().slice(0, 10);
+            updateAuthUI();
+            initializeDropdowns();
+            initDashboard();
+            loadDashboardData();
+            setupFormListeners();
+            setupReportListeners();
+            setupGradebookListeners();
+
+            document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+                link.addEventListener('click', e => navigateTo(e.target.closest('a').dataset.page));
+            });
+
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            document.getElementById('menu-toggle').addEventListener('click', () => {
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+            });
+             overlay.addEventListener('click', () => {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            });
+        });
+
+    </script>
+</body>
+</html>
+
