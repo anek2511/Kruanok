@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>แป้นพิมพ์มือถือเพื่อผู้ป่วย</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* บล็อกระบบ iOS/Android ไม่ให้ซูมหรือขึ้นเมนูแทรกแซง */
+        .mobile-safe {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* ซ่อนแถบเลื่อน */
+        ::-webkit-scrollbar { width: 0px; }
+        
+        /* ไฮไลต์ปุ่มหมวดหมู่ที่กำลังเลือก */
+        .active-tab {
+            background-color: #f59e0b !important;
+            color: #0f172a !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white font-sans h-screen flex flex-col p-3 mobile-safe overflow-hidden">
+
+    <div class="flex-none mb-3">
+        <div id="output-container" class="bg-slate-900 border-4 border-amber-500 rounded-2xl p-4 h-[120px] overflow-y-auto flex items-center justify-between shadow-lg">
+            <p id="output-text" class="text-3xl font-bold text-amber-400 break-all leading-relaxed">
+                👉 แตะเพื่อพิมพ์...
+            </p>
+            <button onclick="clearAll()" class="ml-2 bg-red-600 active:bg-red-800 text-white font-bold py-3 px-4 rounded-xl text-lg shrink-0 shadow-md">
+                ลบหมด
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-none grid grid-cols-3 gap-2 mb-3">
+        <button onclick="speakText()" class="bg-emerald-600 active:bg-emerald-800 text-white font-bold py-4 rounded-xl text-xl flex items-center justify-center gap-1 shadow-md border-b-4 border-emerald-800">
+            🔊 พูด
+        </button>
+        <button onclick="pressKey(' ')" class="bg-blue-600 active:bg-blue-800 text-white font-bold py-4 rounded-xl text-xl shadow-md border-b-4 border-blue-800">
+            ⏵ เว้นวรรค
+        </button>
+        <button onclick="backspace()" class="bg-orange-600 active:bg-orange-800 text-white font-bold py-4 rounded-xl text-xl shadow-md border-b-4 border-orange-800">
+            ⌫ ลบ
+        </button>
+    </div>
+
+    <div class="flex-none flex gap-1 overflow-x-auto pb-2 mb-2 bg-slate-900 p-1 rounded-xl">
+        <button id="tab-0" onclick="changeTab(0)" class="active-tab bg-slate-800 text-white font-bold py-2 px-4 rounded-lg text-lg shrink-0">ก - ณ</button>
+        <button id="tab-1" onclick="changeTab(1)" class="bg-slate-800 text-white font-bold py-2 px-4 rounded-lg text-lg shrink-0">ด - ฝ</button>
+        <button id="tab-2" onclick="changeTab(2)" class="bg-slate-800 text-white font-bold py-2 px-4 rounded-lg text-lg shrink-0">พ - ฮ</button>
+        <button id="tab-3" onclick="changeTab(3)" class="bg-slate-800 text-white font-bold py-2 px-4 rounded-lg text-lg shrink-0">สระ/วรรณยุกต์</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto bg-slate-900 p-3 rounded
