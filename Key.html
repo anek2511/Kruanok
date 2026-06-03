@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <!-- ป้องกันการซูมหน้าจอเปิดเพื่อให้ผู้ป่วยกดหน้าจอแรงๆ หรือกดย้ำๆ แล้วจอไม่ขยาย -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>แป้นพิมพ์ใหญ่พิเศษสำหรับ iPad</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* บล็อกการเลือกข้อความ และการกดค้างแล้วขึ้นเมนูบน iPad (iOS) */
+        .ipad-safe {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* ซ่อน Scrollbar เพื่อความสะอาดสายตา */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white font-sans h-screen flex flex-col p-6 ipad-safe overflow-hidden">
+
+    <!-- ส่วนแสดงผลข้อความ (ใหญ่พิเศษ อ่านง่าย) -->
+    <div class="flex-none mb-6">
+        <div id="output-container" class="bg-slate-800 border-4 border-amber-500 rounded-2xl p-6 min-h-[160px] max-h-[220px] overflow-y-auto flex items-center justify-between shadow-2xl">
+            <p id="output-text" class="text-4xl md:text-6xl font-bold text-amber-400 break-all leading-relaxed transition-all">
+                👉 แตะปุ่มด้านล่างเพื่อพิมพ์...
+            </p>
+            <button onclick="clearAll()" class="ml-4 bg-red-600 active:bg-red-800 text-white font-bold py-5 px-8 rounded-2xl text-2xl shrink-0 shadow-lg border-b-4 border-red-800">
+                ลบทั้งหมด
+            </button>
+        </div>
+    </div>
+
+    <!-- แผงควบคุมด่วน 3 ปุ่มหลัก (ใหญ่พิเศษ) -->
+    <div class="flex-none grid grid-cols-3 gap-4 mb-6">
+        <button onclick="speakText()" class="bg-emerald-600 active:bg-emerald-800 text-white font-bold py-6 rounded-2xl text-3xl flex items-center justify-center gap-3 shadow-lg border-b-8 border-emerald-800">
+            🔊 พูดข้อความ
+        </button>
+        <button onclick="pressKey(' ')" class="bg-blue-600 active:bg-blue-800 text-white font-bold py-6 rounded-2xl text-3xl shadow-lg border-b-8 border-blue-800">
+            ⏵ เว้นวรรค
+        </button>
+        <button onclick="backspace()" class="bg-orange-600 active:bg-orange-800 text-white font-bold py-6 rounded-2xl text-3xl shadow-lg border-b-8 border-orange-800">
+            ⌫ ลบทีละตัว
+        </button>
+    </div>
+
+    <!-- โซนคีย์บอร์ดไทย (สไตล์ปุ่มใหญ่ High-Contrast) -->
+    <div class="flex-1 overflow-y-auto bg-slate-800 p-4 rounded-3xl border-2 border-slate-700 shadow-inner">
+        <div id="keyboard-grid" class="grid grid-cols-6 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 gap-3 md:gap-4">
+            <!-- ปุ่มจะถูกสร้างที่นี่ -->
+        </div>
+    </div>
+
+    <script>
+        // เรียงตัวอักษรให้หาได้ง่าย (จัดกลุ่มพยัญชนะ สระ และวรรณยุกต์)
+        const thaiKeys = [
+            'ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ด', 'ต', 'ถ',
+            'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ม', 'ย',
+            'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ', 'ฯ',
+            'ะ', 'า', 'ิ', 'ี', 'ึ', 'ื', 'ุ', 'ู', 'เ', 'แ', 'โ',
+            'ใ', 'ไ', 'ำ', 'ั', '็', '่', '้', '๊', '๋', '์'
+        ];
+
+        let currentText = "";
+        const outputTextEl = document.getElementById('output-text');
+        const keyboardGrid = document.getElementById('keyboard-grid');
+
+        function createKeyboard() {
+            thaiKeys.forEach(key => {
+                const button = document.createElement('button');
+                button.innerText = key;
+                // เน้นสีเหลืองนวลตัดกับตัวอักษรสีดำเข้ม ขนาดใหญ่พิเศษ เหมาะกับนิ้วสัมผัสบน iPad
+                button.className = "bg-amber-100 active:bg-amber-400 text-slate-900 font-black text-3xl md:text-5xl p-5 md:p-6 rounded-2xl flex items-center justify-center shadow-md border-b-4 border-amber-300 transform active:translate-y-1 active:border-b-0 transition-all cursor-pointer select-none";
+                
+                // ใช้ ontouchstart เพื่อให้ตอบสนองบน iPad ได้เร็วที่สุด ไม่ดีเลย์แบบ onclick
+                button.ontouchstart = (e) => {
+                    e.preventDefault(); // ป้องกันเบราว์เซอร์ซูม
+                    pressKey(key);
+                };
+                // เผื่อเปิดทดสอบบนคอมพิวเตอร์
+                button.onclick = (e) => {
+                    if (e.pointerType !== 'touch') pressKey(key);
+                };
+
+                keyboardGrid.appendChild(button);
+            });
+        }
+
+        function pressKey(char) {
+            currentText += char;
+            updateDisplay();
+        }
+
+        function backspace() {
+            currentText = currentText.slice(0, -1);
+            updateDisplay();
+        }
+
+        function clearAll() {
+            currentText = "";
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            if (currentText === "") {
+                outputTextEl.innerText = "👉 แตะปุ่มด้านล่างเพื่อพิมพ์...";
+                outputTextEl.classList.add('text-slate-500');
+                outputTextEl.classList.remove('text-amber-400');
+            } else {
+                outputTextEl.innerText = currentText;
+                outputTextEl.classList.remove('text-slate-500');
+                outputTextEl.classList.add('text-amber-400');
+            }
+            const container = document.getElementById('output-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ระบบเสียงพูดภาษาไทยบน iPad (iOS SpeechSynthesis)
+        function speakText() {
+            if (currentText.trim() === "") return;
+            
+            if ('speechSynthesis' in window) {
+                // เคลียร์คิวเสียงเก่าก่อน เผื่อผู้ป่วยกดซ้ำๆ
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(currentText);
+                utterance.lang = 'th-TH';
+                utterance.rate = 0.85; // ลดความเร็วลงเล็กน้อยเพื่อให้ฟังง่าย ชัดถ้อยชัดคำ
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // ป้องกันไม่ให้หน้าจอเลื่อนขึ้นลงเวลานิ้วผู้ป่วยปัดโดนพื้นที่ว่าง (ยกเว้นในโซนพิมพ์/คีย์บอร์ด)
+        document.addEventListener('touchmove', function (e) {
+            if (!e.target.closest('#keyboard-grid') && !e.target.closest('#output-container')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        createKeyboard();
+    </script>
+</body>
+</html>
